@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Raid Aventure</title>
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/css/bootstrap.min.css" integrity="sha384-1q8mTJOASx8j1Au+a5WDVnPi2lkFfwwEAa8hDDdjZlpLegxhjVME1fgjWPGmkzs7" crossorigin="anonymous">
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="http://cdn.leafletjs.com/leaflet/v0.7.7/leaflet.css" />
+  </head>
+  <body>
+    <div class="container">
+      <div class="row">
+          <div id="map">
+
+          </div>
+        <div class="classement">
+          <div class="col-lg-12">
+            <h3>LOGS</h3>
+            <ul id="logsDiv">
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+    <script src="https://code.jquery.com/jquery-1.12.0.min.js" charset="utf-8"></script>
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/js/bootstrap.min.js" integrity="sha384-0mSbJDEHialfmuBBQP6A4Qrprq5OVfW37PRR3j5ELqxss1yVqOtnepnHVP9aJ7xS" crossorigin="anonymous"></script>
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="js/script.js" charset="utf-8"></script>
+    <script src="http://cdn.leafletjs.com/leaflet/v0.7.7/leaflet.js"></script>
+    <script type="text/javascript">
+      $(document).ready(function(){
+        //Initialisation de la carte
+        var map = new L.Map('map');
+        var basemapLayer = new L.TileLayer('http://{s}.tiles.mapbox.com/v3/github.map-xgq2svrz/{z}/{x}/{y}.png');
+        // Center map and default zoom level
+        map.setView([48.734759, -3.538378 ], 14);
+        // Adds the background layer to the map
+        map.addLayer(basemapLayer);
+        var socket = io.connect('http://localhost:8080');
+        var marker = "";
+        var polyline = "";
+        var lat2 =  0;
+        var lon2 = 0;
+        var lat1 = 0;
+        var lon1 = 0;
+        var vitesse_moyenne = 0;
+        var nb_valeur_vitesse = 0;
+        var distance_parcouru = 0;
+        //Gestion des socket
+        var circuit = null;
+        $.getJSON("/circuit.json",null,function(data){
+          var LngLat = get_customGeometryJSON(data,"coordinates");
+          $(LngLat).each(function(){
+            this.reverse();
+          })
+          var polyline2 = L.polyline(LngLat, {color: '#ddd', opacity: 0.5, weight : 10}).addTo(map);
+        });
+        $.ajax({
+          url : "/first-coordinates",
+          type : "GET",
+          success : function(data){
+            marker = L.marker([ data.data2[1] , data.data2[0] ]).addTo(map);
+            polyline = L.polyline([], { color: 'red', opacity : 1, smoothFactor: 5, weight : 3}).addTo(map);
+            lat1 = data.data1[1];
+            lon1 = data.data1[0];
+            lat2 = data.data2[1];
+            lon2 = data.data2[0];
+            distance_parcouru += getDistanceLatLng(lat1,lon1,lat2,lon2);
+            var vitesse = getVitesseKmH(lat1,lon1,lat2,lon2,200);
+            vitesse_moyenne = (vitesse_moyenne * nb_valeur_vitesse + vitesse) / (nb_valeur_vitesse + 1);
+            nb_valeur_vitesse = 1;
+          }
+        })
+        socket.on('classement-update',function(data){
+          polyline.addLatLng([data[1], data[0]]);
+          marker.setLatLng([data[1], data[0]]);
+          lat1 = lat2;
+          lon1 = lon2;
+          lat2 = data[1];
+          lon2 = data[0];
+          distance_parcouru += getDistanceLatLng(lat1,lon1,lat2,lon2);
+          var vitesse = getVitesseKmH(lat1,lon1,lat2,lon2,1000);
+          vitesse_moyenne = (vitesse_moyenne * nb_valeur_vitesse + vitesse) / (nb_valeur_vitesse + 1);
+          nb_valeur_vitesse ++;
+          //logsDiv("Nouvelle position : " + data);
+          logsDiv("Vitesse : " + vitesse_moyenne.toFixed(2) + " km/h");
+          logsDiv("Distance parcourue : " + (distance_parcouru / 1000).toFixed(3) + " km");
+        });
+        socket.on("update-2",function(data){
+          console.log(data.team);
+          console.log(data.position);
+        })
+      });
+
+      function logsDiv(message){
+        var logs_div = document.getElementById("logsDiv");
+        $(logs_div).prepend("<li>" + message + "</li>");
+      }
+    </script>
+  </body>
+</html>
