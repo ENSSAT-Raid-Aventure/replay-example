@@ -24,24 +24,14 @@ var jsonLeguer = undefined;
 var url = "./exemple_carte/halage1.json";
 var file = null;
 var tableau_data = [];
+var databaseCollectionTrace = "trace";
+var adresseIPAutoriséeAPI = "::1"
 
 fs.readFile(url,function(err,data){
   if(err) throw err;
   file = JSON.parse(data);
   tableau_data = function_js.get_customGeometryJSON(file,"coordinates");
 });
-
-data.findWhere("trace",{}, function(error, datas){
-  if(error == null){
-    for(var i = 0; i < datas.length; i ++){
-      console.log(datas[i]);
-    }
-  }
-  else{
-    console.log(error);
-  }
-})
-
 //Lancement serveur
 server.listen(8080);
 
@@ -63,9 +53,50 @@ app.get("/circuit.json",function(req,res){
   res.setHeader('Content-type','text/javascript');
   res.sendFile('./carte_eric/leguer.json', {root: __dirname });
 });
+app.post("/api/add-user",function(req,res){
+  console.log(req.connection.remoteAddress);
+  console.log(function_js.isLocal(server,req));
+  if(req.connection.remoteAddress == adresseIPAutoriséeAPI){
+    var message_update = "";
+    var user = JSON.parse(req.query.user);
+    console.log(user);
+    if(user == null)
+      res.status(500).send("Erreur : aucun user renseigné")
+    else{
+      //on récupère la partie properties de la data, on vérifie que tout est renseigné
 
+      if(user.dev_id == undefined || typeof user.dev_id !== "string")
+        res.status(500).send("Erreur : aucun user.dev_id renseigné");
+      else{
+        if(user.time == undefined || !Array.isArray(user.time))
+          user.time = [];
+        if(user.test == undefined || typeof user.test !== "boolean")
+          user.test = true;
+        //Check for path_options
+        //Check for team
+        //Construction variable server
+        var user_db = {
+          geometry: {type : 'LineString', coordinates : [] },
+          type : "Feature",
+          properties : user
+        }
+        //on ajoute l'utilisateur à la base
+        data.addData(databaseCollectionTrace, user_db, function(error, datas){
+          if(error !== null){
+            message_update = "Une erreur s'est produite, l'ajout en base de données n'as pas abouti.";
+          }else{
+            message_update = "L'utilisateur a bien été ajouté à la base de données.";
+          }
+        });
+      }
+    }
+    res.status(200).send(message_update);
+  }else{
+    res.status(404).send("Impossible de trouver le contrôleur correspondant");
+  }
+});
 //Appel du serveur qui récupère la data depuis les antennes
-app.post("/update",function(req,res){
+app.put("/api/update",function(req,res){
   var device_id = req.query.device_id;
   var new_position = req.query.new_position;
   if(device_id == undefined)
@@ -73,7 +104,7 @@ app.post("/update",function(req,res){
   if(new_position == undefined)
     res.status(500).send("Erreur : pas de new_position renseigné");
   var teamTag;
-  data.findWhere("trace",{ "properties.dev_id" : device_id }, function(error,datas){
+  data.findWhere(databaseCollectionTrace,{ "properties.dev_id" : device_id }, function(error,datas){
     if(error === null)
       if(datas.length === 0)
         res.status(500).send("Erreur : le device_id n'as pas été trouvée dans la base de données");
@@ -88,8 +119,29 @@ app.post("/update",function(req,res){
       res.status(500).send("Erreur : une erreur est survenue lors de l'envoi des données aux clients");
   });
 });
-
-//
+app.delete("/api/delete-user",function(req,res){
+  var message_update = "";
+  var id = req.query.id;
+  if(id == null)
+    res.status(500).send("Erreur : aucun user renseigné")
+  else{
+      //on ajoute l'utilisateur à la base
+      data.removeManyData(databaseCollectionTrace, { "_id" : id }, function(error, datas){
+        console.log(error)
+        if(error !== null){
+          message_update = "Une erreur s'est produite, la suppression en base de données n'as pas abouti.";
+        }else{
+          message_update = "L'utilisateur a bien été supprimé à la base de données.";
+        }
+        res.status(200).send(message_update);
+      });
+  }
+});
+app.get("/api/get-all-user", function(req,res){
+  data.findWhere(databaseCollectionTrace,{}, function(error, datas){
+    res.send(datas);
+  })
+});
 app.get("/first-coordinates",function(req,res){
   res.setHeader('Content-type','application/json');
   if(index_test > 0){

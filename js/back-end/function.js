@@ -16,3 +16,10 @@ module.exports.get_customGeometryJSON = function (json, property,index){
       return json[index].geometry.properties.teammates;
   }
 }
+function cliAddress(req) {
+  return req.connection.remoteAddress || req.socket.remoteAddress || req.headers['x-forwarded-for'];
+}
+
+module.exports.isLocal = function (server, request) {
+  return server.address() === cliAddress(request);
+}
