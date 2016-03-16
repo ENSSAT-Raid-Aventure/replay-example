@@ -1,5 +1,5 @@
 (function ( $ ) {
-  domainname = "http://localhost:8080/";
+  domainname = "/";
   GetLatLng = function(id){
     if(id != undefined && id != 0){
       var url = domainname + "map/getlatlng?id=" + id;
