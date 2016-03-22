@@ -10,7 +10,7 @@ module.exports = function (app) {
   var last_time_teams;
   //Temps entre chaque mise à jour côté client
   var timelaps = 1000;
-  var attenteDepart = 60000;
+  var attenteDepart = 2000;
   var point_depart;
 
   //Initialisation
@@ -21,24 +21,28 @@ module.exports = function (app) {
       circuits = datas;
       point_depart = _.find(circuits, function(circuit){ return circuit.properties.part == kayak && circuit.properties.type == confirme}).geometry.coordinates[0];
     }
+    //TODO : ELSE
+
+    //Timer update
+    data.findWhere(databaseCollectionTrace,{}, function(error, datas){
+      if(error == null)
+      {
+        last_time_teams = _.map(datas, function (team){
+          var team_ =  {
+            device_id : team.properties.dev_id,
+            team : team.properties.team,
+            time : [Now()],
+            position : [point_depart],
+            index : 0
+          };
+          return team_;
+        });
+      }
+      //console.log(datas);
+    });
   });
 
-  //Timer update
-  data.findWhere(databaseCollectionTrace,{}, function(error, datas){
-    if(error != null)
-    {
-      last_time_teams = _.map(datas, function (team){
-        var team_ =  {
-          device_id : team.properties.dev_id,
-          team : team.properties.team,
-          time : [Now()],
-          position : [point_depart],
-          index : 0
-        };
-        return team;
-      });
-    }
-  });
+
 
   //API Listener
   app.post("/api/add-user",function(req,res){
@@ -82,14 +86,15 @@ module.exports = function (app) {
   });
 
   app.put("/api/update",function(req,res){
+
     var device_id = req.query.device_id ? req.query.device_id : req.body.device_id;
     var new_position = req.query.new_position ? req.query.new_position : req.body.new_position;
     var time = req.query.time ? req.query.time : req.body.time;
-    if(device_id == undefined)
+    if(device_id === undefined)
       res.status(500).send("Erreur : pas de device_id renseigné");
-    else if(new_position == undefined)
+    else if(new_position === undefined)
       res.status(500).send("Erreur : pas de new_position renseigné");
-    else if(time == undefined)
+    else if(time === undefined)
       res.status(500).send("Erreur : pas de time renseigné");
     else{
       var teamTag;
@@ -108,10 +113,9 @@ module.exports = function (app) {
               var last_lat_lng = team.position[team.position.length -1];
               var diff_lat = new_position[0] - last_lat_lng[0];
               var diff_lng = new_position[1] - last_lat_lng[1];
-              for(var index = 0; index < difference / 1000; index ++){
+              for(var index = 0; index < difference; index ++){
                 team.position.push([last_lat_lng[0] + (diff_lat/(difference/1000)) * index, last_lat_lng[1] + (diff_lng/(difference/1000)) * index]);
               }
-
             }
             //teamTag = datas[0].properties.team.name;
             //if(sendBroadcast("update-2",{team : teamTag, position : new_position, dev_id : device_id, time : time}) === true)
@@ -142,7 +146,7 @@ module.exports = function (app) {
         });
     }
   });
-  app.get("/api/start",function(){
+  app.get("/api/start",function(req,res){
     setTimeout(function(){
       for(var index = 0; index < last_time_teams.length; last_time_teams ++){
         var team_ = last_time_teams[index];
@@ -160,6 +164,7 @@ module.exports = function (app) {
       }
     },
     attenteDepart);
+    res.sendStatus(200);
   });
   app.get("/api/get-all-user", function(req,res){
     data.findWhere(databaseCollectionTrace,{}, function(error, datas){
