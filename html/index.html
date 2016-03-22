@@ -40,12 +40,18 @@
         map.addLayer(basemapLayer);
         var socket = io.connect('/');
         var marker = [];
-        var kayak_cf;
-        var velo_cf;
-        var running_cf;
-        var kayak_d;
-        var velo_d;
-        var running_d;
+        var circuits = {
+          confirme :{
+            kayak : {},
+            velo : {},
+            running : {}
+          },
+          debutant : {
+            kayak : {},
+            velo : {},
+            running : {}
+          }
+        }
         var polyline = "";
         var opacity_circuit = 0.5;
         var lat2 =  0;
@@ -100,10 +106,13 @@
           }
         });*/
         $.ajax({
-          url : "/api/circuit/kayak/true",
+          url : "/api/circuits/true",
           type : "GET",
           success : function(circuits){
             if(circuits.length > 0){
+              for(var index_circuit = 0; index_circuit < circuits.length; index_circuit ++){
+                circuits
+              }
               var circuit = _.map(circuits[0].geometry.coordinates, function(coordonnees){
                 return new L.LatLng(coordonnees[1], coordonnees[0]);
               });
@@ -128,66 +137,7 @@
             }
           }
         });
-        $.ajax({
-          url : "/api/circuit/running/true",
-          type : "GET",
-          success : function(circuits){
-            if(circuits.length > 0){
-              var circuit = _.map(circuits[0].geometry.coordinates, function(coordonnees){
-                return new L.LatLng(coordonnees[1], coordonnees[0]);
-              });
-              running_cf = new L.polyline(circuit , { color: circuits[0].properties.color, opacity : opacity_circuit, smoothFactor: 5, weight : 3}).addTo(map);
-            }
-          }
-        });
-        $.ajax({
-          url : "/api/circuit/velo/true",
-          type : "GET",
-          success : function(circuits){
-            if(circuits.length > 0){
-              var circuit = _.map(circuits[0].geometry.coordinates, function(coordonnees){
-                return new L.LatLng(coordonnees[1], coordonnees[0]);
-              });
-              velo_cf = new L.polyline(circuit , { color: circuits[0].properties.color, opacity : opacity_circuit, smoothFactor: 5, weight : 3}).addTo(map);
-            }
-          }
-        });
-        $.ajax({
-          url : "/api/circuit/kayak/false",
-          type : "GET",
-          success : function(circuits){
-            if(circuits.length > 0){
-              var circuit = _.map(circuits[0].geometry.coordinates, function(coordonnees){
-                return new L.LatLng(coordonnees[1], coordonnees[0]);
-              });
-              kayak_d = new L.polyline(circuit , { color: circuits[0].properties.color, opacity : opacity_circuit, smoothFactor: 5, weight : 3}).addTo(map);
-            }
-          }
-        });
-        $.ajax({
-          url : "/api/circuit/running/false",
-          type : "GET",
-          success : function(circuits){
-            if(circuits.length > 0){
-              var circuit = _.map(circuits[0].geometry.coordinates, function(coordonnees){
-                return new L.LatLng(coordonnees[1], coordonnees[0]);
-              });
-              running_d = new L.polyline(circuit , { color: circuits[0].properties.color, opacity : opacity_circuit, smoothFactor: 5, weight : 3}).addTo(map);
-            }
-          }
-        });
-        $.ajax({
-          url : "/api/circuit/velo/false",
-          type : "GET",
-          success : function(circuits){
-            if(circuits.length > 0){
-              var circuit = _.map(circuits[0].geometry.coordinates, function(coordonnees){
-                return new L.LatLng(coordonnees[1], coordonnees[0]);
-              });
-              velo_d = new L.polyline(circuit , { color: circuits[0].properties.color, opacity : opacity_circuit, smoothFactor: 5, weight : 3}).addTo(map);
-            }
-          }
-        });
+
         socket.on('classement-update',function(data){
           /*
           polyline.addLatLng([data[1], data[0]]);
@@ -205,7 +155,7 @@
           logsDiv("Distance parcourue : " + (distance_parcouru / 1000).toFixed(3) + " km");
           */
         });
-        socket.on("update-2",function(data){
+        socket.on("update",function(data){
           var marker_ = _.find(marker, function(m){ return m.dev_id == data.dev_id});
           xxx = data.position;
 

@@ -4,8 +4,43 @@ module.exports = function (app) {
   var kayak = "kayak";
   var velo = "vtt";
   var running = "trail";
+  var circuits = [];
   var databaseCollectionTrace = "trace";
   var databaseCollectionCircuit = "circuit";
+  var last_time_teams;
+  //Temps entre chaque mise à jour côté client
+  var timelaps = 1000;
+  var attenteDepart = 60000;
+  var point_depart;
+
+  //Initialisation
+
+  // Circuits
+  data.findWhere(databaseCollectionCircuit,{}, function(error, datas){
+    if(!error){
+      circuits = datas;
+      point_depart = _.find(circuits, function(circuit){ return circuit.properties.part == kayak && circuit.properties.type == confirme}).geometry.coordinates[0];
+    }
+  });
+
+  //Timer update
+  data.findWhere(databaseCollectionTrace,{}, function(error, datas){
+    if(error != null)
+    {
+      last_time_teams = _.map(datas, function (team){
+        var team_ =  {
+          device_id : team.properties.dev_id,
+          team : team.properties.team,
+          time : [Now()],
+          position : [point_depart],
+          index : 0
+        };
+        return team;
+      });
+    }
+  });
+
+  //API Listener
   app.post("/api/add-user",function(req,res){
     if(req.connection.remoteAddress == adresseIPAutoriséeAPI){
       var message_update = "";
@@ -45,11 +80,11 @@ module.exports = function (app) {
       res.status(404).send("Impossible de trouver le contrôleur correspondant");
     }
   });
+
   app.put("/api/update",function(req,res){
-    var device_id = req.query.device_id;
-    var new_position = req.query.new_position;
-    var time = req.query.time;
-    console.log(new_position);
+    var device_id = req.query.device_id ? req.query.device_id : req.body.device_id;
+    var new_position = req.query.new_position ? req.query.new_position : req.body.new_position;
+    var time = req.query.time ? req.query.time : req.body.time;
     if(device_id == undefined)
       res.status(500).send("Erreur : pas de device_id renseigné");
     else if(new_position == undefined)
@@ -60,22 +95,32 @@ module.exports = function (app) {
       var teamTag;
       if(typeof new_position === "string")
         new_position = JSON.parse(new_position);
-        console.log("before mongodb");
       data.findWhere(databaseCollectionTrace,{ "properties.dev_id" : device_id }, function(error,datas){
-        console.log("callback mongodb");
         if(error === null)
           if(datas.length === 0)
             res.status(500).send("Erreur : le device_id n'as pas été trouvée dans la base de données");
           else{
-            teamTag = datas[0].properties.team.name;
+            var team = _.findWhere(last_time_teams, { device_id : device_id });
+            if(team != undefined)
+            {
+              team.time.push(Now());
+              var difference = team.time[team.time.length-1] - team.time[team.time.length-2];
+              var last_lat_lng = team.position[team.position.length -1];
+              var diff_lat = new_position[0] - last_lat_lng[0];
+              var diff_lng = new_position[1] - last_lat_lng[1];
+              for(var index = 0; index < difference / 1000; index ++){
+                team.position.push([last_lat_lng[0] + (diff_lat/(difference/1000)) * index, last_lat_lng[1] + (diff_lng/(difference/1000)) * index]);
+              }
+
+            }
+            //teamTag = datas[0].properties.team.name;
+            //if(sendBroadcast("update-2",{team : teamTag, position : new_position, dev_id : device_id, time : time}) === true)
+              res.sendStatus(200);
+            //else
+            //  res.status(500).send("Erreur : une erreur est survenue lors de l'envoi des données aux clients");
           }
         else
           res.status(500).send("Erreur : Une erreur s'est produite lors de la recherche en base de données");
-      }).then(function(){
-        if(sendBroadcast("update-2",{team : teamTag, position : new_position, dev_id : device_id, time : time}) === true)
-          res.sendStatus(200);
-        else
-          res.status(500).send("Erreur : une erreur est survenue lors de l'envoi des données aux clients");
       });
     }
   });
@@ -97,6 +142,25 @@ module.exports = function (app) {
         });
     }
   });
+  app.get("/api/start",function(){
+    setTimeout(function(){
+      for(var index = 0; index < last_time_teams.length; last_time_teams ++){
+        var team_ = last_time_teams[index];
+        team_.interval = setInterval(function(){
+          if(team_.position[team_.index]){
+            sendBroadcast("update",
+            {
+              team : team_.team,
+              position : team_.position[team_.index],
+              dev_id : team_.device_id
+            });
+            team_.index ++;
+          }
+        },timelaps)
+      }
+    },
+    attenteDepart);
+  });
   app.get("/api/get-all-user", function(req,res){
     data.findWhere(databaseCollectionTrace,{}, function(error, datas){
       res.status(200).send(datas);
@@ -111,6 +175,18 @@ module.exports = function (app) {
         };
       }));
     });
+  });
+  app.get("/api/circuits/:confirme",function(req,res){
+    if(req.params.confirme == "true"){
+      data.findWhere(databaseCollectionCircuit,{"properties.type" : confirme}, function(error, datas){
+        res.status(200).send(datas);
+      });
+    }
+    else{
+      data.findWhere(databaseCollectionCircuit,{"properties.type" : debutant}, function(error, datas){
+        res.status(200).send(datas);
+      });
+    }
   });
   app.get("/api/circuit/kayak/:confirme",function(req,res){
     if(req.params.confirme == "true"){
@@ -164,4 +240,26 @@ module.exports = function (app) {
       }));
     }
   });
+
+
+  function setUpdateEngine(last_time_teams, device_id, time){
+    var team = _.findWhere(last_time_teams, { device_id : device_id });
+    if(team != undefined)
+    {
+      team.time.push(Now());
+      if(team.timer.length != 0){
+
+      }else{
+        var difference = team.time[team.time.length-1] - team.time[team.time.length-2];
+        team.timer = [setInterval(function(){
+
+        }, timelaps)];
+
+      }
+    }
+  }
+
+  function Now(){
+    return new Date().getTime();
+  }
 };
