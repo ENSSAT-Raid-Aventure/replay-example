@@ -42,7 +42,7 @@ module.exports = function (app) {
     });
   });
 
-
+  // Fin Initialisation
 
   //API Listener
   app.post("/api/add-user",function(req,res){
@@ -86,7 +86,6 @@ module.exports = function (app) {
   });
 
   app.put("/api/update",function(req,res){
-
     var device_id = req.query.device_id ? req.query.device_id : req.body.device_id;
     var new_position = req.query.new_position ? req.query.new_position : req.body.new_position;
     var time = req.query.time ? req.query.time : req.body.time;
@@ -98,6 +97,8 @@ module.exports = function (app) {
       res.status(500).send("Erreur : pas de time renseigné");
     else{
       var teamTag;
+      if(time.toString().length != new Date().getTime().toString().length)
+        time = time*1000;
       if(typeof new_position === "string")
         new_position = JSON.parse(new_position);
       data.findWhere(databaseCollectionTrace,{ "properties.dev_id" : device_id }, function(error,datas){
@@ -106,15 +107,19 @@ module.exports = function (app) {
             res.status(500).send("Erreur : le device_id n'as pas été trouvée dans la base de données");
           else{
             var team = _.findWhere(last_time_teams, { device_id : device_id });
+            console.log(last_time_teams);
+            console.log("team : " + team);
             if(team != undefined)
             {
               team.time.push(Now());
               var difference = team.time[team.time.length-1] - team.time[team.time.length-2];
+              console.log("difference : " + difference);
               var last_lat_lng = team.position[team.position.length -1];
               var diff_lat = new_position[0] - last_lat_lng[0];
               var diff_lng = new_position[1] - last_lat_lng[1];
-              for(var index = 0; index < difference; index ++){
-                team.position.push([last_lat_lng[0] + (diff_lat/(difference/1000)) * index, last_lat_lng[1] + (diff_lng/(difference/1000)) * index]);
+              for(var index = 0; index < difference/timelaps; index ++){
+                console.log(team.position);
+                team.position.push([last_lat_lng[0] + (diff_lat/(difference/timelaps)) * index, last_lat_lng[1] + (diff_lng/(difference/timelaps)) * index]);
               }
             }
             //teamTag = datas[0].properties.team.name;
@@ -148,17 +153,19 @@ module.exports = function (app) {
   });
   app.get("/api/start",function(req,res){
     setTimeout(function(){
-      for(var index = 0; index < last_time_teams.length; last_time_teams ++){
-        var team_ = last_time_teams[index];
-        team_.interval = setInterval(function(){
-          if(team_.position[team_.index]){
+      for(var index = 0; index < last_time_teams.length; index ++){
+        last_time_teams[index].interval = setInterval(function(){
+          var $self = last_time_teams[index];
+          console.log($self);
+          console.log(last_time_teams);
+          if($self.position[$self.index]){
             sendBroadcast("update",
             {
-              team : team_.team,
-              position : team_.position[team_.index],
-              dev_id : team_.device_id
+              team : $self.team,
+              position : $self.position[$self.index],
+              dev_id : $self.device_id
             });
-            team_.index ++;
+            $self.index ++;
           }
         },timelaps)
       }
@@ -247,7 +254,7 @@ module.exports = function (app) {
   });
 
 
-  function setUpdateEngine(last_time_teams, device_id, time){
+  /*function setUpdateEngine(last_time_teams, device_id, time){
     var team = _.findWhere(last_time_teams, { device_id : device_id });
     if(team != undefined)
     {
@@ -262,9 +269,13 @@ module.exports = function (app) {
 
       }
     }
-  }
+  }*/
 
   function Now(){
     return new Date().getTime();
+  }
+
+  function getlength(number) {
+    return number.toString().length;
   }
 };

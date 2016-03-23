@@ -156,11 +156,12 @@
           */
         });
         socket.on("update",function(data){
+          console.log(data);
           var marker_ = _.find(marker, function(m){ return m.dev_id == data.dev_id});
           xxx = data.position;
 
           if(marker_)
-            marker_.marker.setLatLng([data.position.lng, data.position.lat]);
+            marker_.marker.setLatLng([data.position[1], data.position[0]]);
           //polyline.addLatLng([data[1], data[0]]);
           //marker.setLatLng([data[1], data[0]]);
           console.log(data.team);

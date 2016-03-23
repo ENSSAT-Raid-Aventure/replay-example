@@ -2,6 +2,7 @@ import json
 import requests
 import calendar
 import datetime
+import time
 from pprint import pprint
 from urllib2 import Request, urlopen, URLError
 
@@ -15,21 +16,20 @@ with open('exemple_carte/halage1.json') as data_file:
 try:
     r_ = requests.get(url_start)
 except URLError, e:
-    pprint("fail chef")    
+    pprint("fail chef")
 for coordinate in data[0]["geometry"]["coordinates"]:
     #pprint(coordinate)
     try:
         data_ = {}
         data_["device_id"] = device_id
         data_["new_position"] = {}
-        data_["new_position"]['lat'] = coordinate[0]
-        data_["new_position"]['lng'] = coordinate[1]
+        data_["new_position"] = coordinate
         data_["time"] = calendar.timegm(datetime.datetime.now().timetuple())
         pprint(data_)
         r = requests.put(url_update,data = data_)
     except URLError, e:
         print 'No kittez. Got an error code:', e
-
+    time.sleep(1);
 
 _data = {}
 _data['device_id'] = dev_id
