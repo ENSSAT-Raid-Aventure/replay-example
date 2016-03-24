@@ -30,14 +30,3 @@ for coordinate in data[0]["geometry"]["coordinates"]:
     except URLError, e:
         print 'No kittez. Got an error code:', e
     time.sleep(1);
-
-_data = {}
-_data['device_id'] = dev_id
-_data['new_position'] = {}
-_data['new_position']['lat'] = gps_data['coordinate'][0]
-_data['new_position']['lat'] = gps_data['coordinate'][1]
-_data['time'] = gps_data['timestamp']
-#live_api_url = "http://84.39.44.100:8080"
-if live_api_url:
-    url = live_api_url + "/api/update"
-    requests.put(url=url, data=_data)

@@ -107,18 +107,14 @@ module.exports = function (app) {
             res.status(500).send("Erreur : le device_id n'as pas été trouvée dans la base de données");
           else{
             var team = _.findWhere(last_time_teams, { device_id : device_id });
-            console.log(last_time_teams);
-            console.log("team : " + team);
             if(team != undefined)
             {
               team.time.push(Now());
               var difference = team.time[team.time.length-1] - team.time[team.time.length-2];
-              console.log("difference : " + difference);
               var last_lat_lng = team.position[team.position.length -1];
               var diff_lat = new_position[0] - last_lat_lng[0];
               var diff_lng = new_position[1] - last_lat_lng[1];
               for(var index = 0; index < difference/timelaps; index ++){
-                console.log(team.position);
                 team.position.push([last_lat_lng[0] + (diff_lat/(difference/timelaps)) * index, last_lat_lng[1] + (diff_lng/(difference/timelaps)) * index]);
               }
             }
@@ -154,20 +150,7 @@ module.exports = function (app) {
   app.get("/api/start",function(req,res){
     setTimeout(function(){
       for(var index = 0; index < last_time_teams.length; index ++){
-        last_time_teams[index].interval = setInterval(function(){
-          var $self = last_time_teams[index];
-          console.log($self);
-          console.log(last_time_teams);
-          if($self.position[$self.index]){
-            sendBroadcast("update",
-            {
-              team : $self.team,
-              position : $self.position[$self.index],
-              dev_id : $self.device_id
-            });
-            $self.index ++;
-          }
-        },timelaps)
+        startTeam(last_time_teams, index)
       }
     },
     attenteDepart);
@@ -270,6 +253,21 @@ module.exports = function (app) {
       }
     }
   }*/
+
+  function startTeam(last_time_teams_, index_){
+    last_time_teams_[index_].interval = setInterval(function(){
+      if(last_time_teams_[index_].position[last_time_teams[index_].index]){
+        sendBroadcast("update",
+        {
+          team : last_time_teams_[index_].team,
+          position : last_time_teams_[index_].position[last_time_teams[index_].index],
+          dev_id : last_time_teams_[index_].device_id
+        });
+        last_time_teams_[index_].index ++;
+      }
+    },timelaps);
+  }
+
 
   function Now(){
     return new Date().getTime();
