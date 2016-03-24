@@ -13,7 +13,7 @@ var server = http.Server(app);
 var io = require('socket.io').listen(server);
 _ = require('underscore');
 var fs = require('fs');
-var function_js = require('./js/back-end/function');
+function_js = require('./js/back-end/function');
 var api = require('./routes/api.js')(app);
 
 //Définition et initialisation variables serveur

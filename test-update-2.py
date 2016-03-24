@@ -8,15 +8,12 @@ from urllib2 import Request, urlopen, URLError
 
 url_update = "http://localhost:8080/api/update"
 url_start = "http://localhost:8080/api/start"
-device_id = "020000FFFF00A122"
+device_id = "020000FFFF00A195"
 
-with open('exemple_carte/halage1.json') as data_file:
+with open('exemple_carte/halage2.json') as data_file:
     data = json.load(data_file)
 #pprint(type(data[0].geometry.coordinates))
-try:
-    r_ = requests.get(url_start)
-except URLError, e:
-    pprint("fail chef")
+
 for coordinate in data[0]["geometry"]["coordinates"]:
     #pprint(coordinate)
     try:
@@ -29,4 +26,4 @@ for coordinate in data[0]["geometry"]["coordinates"]:
         r = requests.put(url_update,data = data_)
     except URLError, e:
         print 'No kittez. Got an error code:', e
-    time.sleep(4);
+    time.sleep(2);

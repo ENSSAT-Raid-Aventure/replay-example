@@ -1,4 +1,4 @@
-var track2={
+[{
   "type": "Feature",
   "geometry": {
     "type": "LineString",
@@ -5983,4 +5983,4 @@ var track2={
       1448971599000
     ]
   }
-};
+}]

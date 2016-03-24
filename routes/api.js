@@ -164,7 +164,17 @@ module.exports = function (app) {
   app.get("/api/teams",function(req,res){
     data.findWhere(databaseCollectionTrace,{}, function(error, datas){
       res.status(200).send(_.map(datas,function(data){
+        var distance = 0;
+        for(var i = 1; i < data.geometry.coordinates.length; i++){
+          distance += function_js.getDistanceLatLng(
+            function_js.TryParseInt(data.geometry.coordinates[i-1][0]),
+            function_js.TryParseInt(data.geometry.coordinates[i-1][1]),
+            function_js.TryParseInt(data.geometry.coordinates[i][0]),
+            function_js.TryParseInt(data.geometry.coordinates[i][1])
+          )
+        }
         return {
+          distance : distance,
           dev_id : data.properties.dev_id,
           team : data.properties.team
         };

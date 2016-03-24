@@ -9,6 +9,28 @@
     <link rel="stylesheet" href="http://cdn.leafletjs.com/leaflet/v0.7.7/leaflet.css" />
   </head>
   <body>
+    <style>
+      .classement{
+
+      }
+      .team{
+        padding:10px;
+        margin:10px 0px;
+        border-radius: 4px;
+      }
+      .place{
+        border:black 1px solid;
+        padding:5px;
+        background-color: white;
+        border-radius: 4px;
+      }
+      .team_name{
+        margin: 10px 0px 10px 5px;
+      }
+      .distance{
+        float: right;
+      }
+    </style>
     <div class="container">
       <div class="row">
           <div id="map">
@@ -17,9 +39,20 @@
         <div class="classement">
           <div class="col-lg-12">
             <h3>Classement</h3>
-            <ul id="logsDiv">
-
-            </ul>
+            <div id="classement">
+              <!--<div class="team" style="background-color:#ffB73f">
+                <span class="place">1</span>
+                <span class="team_name">Team numéro 1</span>
+              </div>
+              <div class="team" style="background-color:#63Aae7">
+                <span class="place">2</span>
+                <span class="team_name">Team numéro 2</span>
+              </div>
+              <div class="team" style="background-color:#63AA75">
+                <span class="place">3</span>
+                <span class="team_name">Team numéro 3</span>
+              </div>-->
+            </div>
           </div>
         </div>
       </div>
@@ -35,11 +68,16 @@
         //Initialisation de la carte
         var map = new L.Map('map');
         var basemapLayer = new L.TileLayer('http://{s}.tiles.mapbox.com/v3/github.map-xgq2svrz/{z}/{x}/{y}.png');
+
         // Center map and default zoom level
         map.setView([48.734759, -3.538378 ], 14);
         // Adds the background layer to the map
         map.addLayer(basemapLayer);
         var socket = io.connect('/');
+        //bleu : #63Aae7
+        //vert : #63AA75
+        //jaune : #ffB73f
+        var color = ["#ffB73f","#63AA75","#63Aae7"];
         var marker = [];
         var circuits = {
           confirme :{
@@ -64,49 +102,6 @@
         var nb_valeur_vitesse = 0;
         var distance_parcouru = 0;
         //Gestion des socket
-        var circuit = null;
-        /*$.getJSON("/circuit.json",null,function(data){
-          var LngLat = get_customGeometryJSON(data,"coordinates");
-          $(LngLat).each(function(){
-            this.reverse();
-          })
-          var polyline2 = L.polyline(LngLat, {color: '#ddd', opacity: 0.5, weight : 10}).addTo(map);
-        });*/
-        /*
-        $.ajax({
-          url : "/api/teams",
-          type : "GET",
-          success : function(datas){
-            if(datas.length){
-              $.ajax({
-                url : "/first-coordinates",
-                type : "GET",
-                success : function(first_coordinates){
-                  for(var index = 0; index < datas.length; index ++){
-                    var marker_ = L.marker([ first_coordinates.data2[1] , first_coordinates.data2[0] ]).addTo(map);
-                    marker.push({
-                        marker : marker_,
-                        team : datas[index].team,
-                        dev_id : datas[index].dev_id
-                    });
-                  };
-                  //marker = L.marker([ data.data2[1] , data.data2[0] ]).addTo(map);
-
-                  polyline = L.polyline([], { color: 'red', opacity : 1, smoothFactor: 5, weight : 3}).addTo(map);
-                  lat1 = data.data1[1];
-                  lon1 = data.data1[0];
-                  lat2 = data.data2[1];
-                  lon2 = data.data2[0];
-                  distance_parcouru += getDistanceLatLng(lat1,lon1,lat2,lon2);
-                  var vitesse = getVitesseKmH(lat1,lon1,lat2,lon2,200);
-                  vitesse_moyenne = (vitesse_moyenne * nb_valeur_vitesse + vitesse) / (nb_valeur_vitesse + 1);
-                  nb_valeur_vitesse = 1;
-
-                }
-              });
-            }
-          }
-        });*/
         $.ajax({
           url : "/api/circuits/true",
           type : "GET",
@@ -142,9 +137,12 @@
                   if(datas_.length){
                     for(var index = 0; index < datas_.length; index ++){
                       var marker_ = L.marker([ first_coordinates[1] , first_coordinates[0] ]).addTo(map);
+                      var div = setTeamHTML(datas_[index].dev_id, index + 1, datas_[index].team.name, color[index%color.length]);
                       marker.push({
+                          div : div,
+                          distance : datas_[index].distance,
                           marker : marker_,
-                          team : datas_[index].team,
+                          team : datas_[index].team.name,
                           dev_id : datas_[index].dev_id
                       });
                     };
@@ -173,23 +171,76 @@
           */
         });
         socket.on("update",function(data){
-          console.log(data);
           var marker_ = _.find(marker, function(m){ return m.dev_id == data.dev_id});
-          xxx = data.position;
-
-          if(marker_)
+          if(marker_){
+            var lastlatlng = marker_.marker.getLatLng();
+            marker_.distance += getDistanceLatLng(data.position[0],data.position[1],lastlatlng.lat, lastlatlng.lng);
+            //teamSort(marker);
+            marker_.div.find(".distance").html((marker_.distance/1000000000).toFixed(2) + " km");
+            sort(marker);
             marker_.marker.setLatLng([data.position[1], data.position[0]]);
-          //polyline.addLatLng([data[1], data[0]]);
-          //marker.setLatLng([data[1], data[0]]);
-          console.log(data.team);
-          console.log(data.position);
+          }
         })
       });
 
-      function logsDiv(message){
-        var logs_div = document.getElementById("logsDiv");
-        $(logs_div).prepend("<li>" + message + "</li>");
+      function setTeamHTML(device_id, place, team_name, color){
+        var template = _.template($("#templateTeamClassement").html());
+        var data = { device_id : device_id, place: place, team_name : team_name, color : color };
+        var html = template(data);
+        $("#classement").append(html);
+        return $(".team[data-device='" + device_id + "']");
       }
+
+      function sort(marker){
+        /*$("#classement .team").sortDomElements(function(a,b){
+          return TryParseInt($(a).find('.distance').html()) < TryParseInt($(b).find('.distance').html())
+        });*/
+        i = 0;
+        while(i < $("#classement .team").length){
+          var divsTeam = $("#classement .team");
+          if(divsTeam[i + 1]){
+            var distance1 = $(divsTeam[i]).find(".distance").html();
+            var distance2 = $(divsTeam[i + 1]).find(".distance").html();
+            if(TryParseInt(distance2) < TryParseInt(distance1)){
+              $(divsTeam[i]).insertBefore($(divsTeam[i+1]));
+              i = 0;
+              console.log("aa")
+            }else{
+              console.log("ab");
+              i ++;
+            }
+          }else{
+            i ++;
+          }
+        }
+      }
+
+      jQuery.fn.sortDomElements = (function() {
+        return function(comparator) {
+            return Array.prototype.sort.call(this, comparator).each(function(i) {
+                  this.parentNode.appendChild(this);
+            });
+        };
+      })();
+
+      function TryParseInt(str) {
+        var retValue = 0;
+        if(str !== null) {
+          if(str.length > 0) {
+            if (!isNaN(str)) {
+              retValue = parseInt(str);
+            }
+          }
+        }
+        return retValue;
+      }
+    </script>
+    <script type="template" id="templateTeamClassement">
+      <div class="team" data-device="<%= device_id %>" style="background-color:<%= color %>">
+        <span class="place"><%= place %></span>
+        <span class="team_name"><%= team_name %></span>
+        <span class="distance">0 km</<span>
+      </div>
     </script>
   </body>
 </html>
