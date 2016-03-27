@@ -13,6 +13,8 @@ Exemple de replay d'un parcours avec fichiers Geojson et Leaflet
 * assert
 * mongodb
 * q
+* d3
+* jsdom
 ##DOCS
 
 ###API

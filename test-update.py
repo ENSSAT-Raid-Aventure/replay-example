@@ -29,4 +29,4 @@ for coordinate in data[0]["geometry"]["coordinates"]:
         r = requests.put(url_update,data = data_)
     except URLError, e:
         print 'No kittez. Got an error code:', e
-    time.sleep(4);
+    time.sleep(1);

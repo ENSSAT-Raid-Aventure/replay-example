@@ -12,6 +12,7 @@ module.exports = function (app) {
   var timelaps = 1000;
   var attenteDepart = 2000;
   var point_depart;
+  var startTime;
 
   //Initialisation
 
@@ -31,7 +32,7 @@ module.exports = function (app) {
           var team_ =  {
             device_id : team.properties.dev_id,
             team : team.properties.team,
-            time : [Now()],
+            time : [],
             position : [point_depart],
             index : 0
           };
@@ -96,39 +97,41 @@ module.exports = function (app) {
     else if(time === undefined)
       res.status(500).send("Erreur : pas de time renseigné");
     else{
-      var teamTag;
       if(time.toString().length != new Date().getTime().toString().length)
         time = time*1000;
       if(typeof new_position === "string")
         new_position = JSON.parse(new_position);
       data.findWhere(databaseCollectionTrace,{ "properties.dev_id" : device_id }, function(error,datas){
-        if(error === null)
+        if(error === null){
           if(datas.length === 0)
             res.status(500).send("Erreur : le device_id n'as pas été trouvée dans la base de données");
           else{
             var team = _.findWhere(last_time_teams, { device_id : device_id });
-            if(team != undefined)
-            {
+            if(team){
               team.time.push(Now());
+              //On fait la différence de temps entre les deux derniers points (le dernier étant celui que l'on vient de recevoir)
               var difference = team.time[team.time.length-1] - team.time[team.time.length-2];
               var last_lat_lng = team.position[team.position.length -1];
               var diff_lat = new_position[0] - last_lat_lng[0];
               var diff_lng = new_position[1] - last_lat_lng[1];
-              for(var index = 0; index < difference/timelaps; index ++){
+              /* On ajoute les points en fonction d'un index compris entre 1 et un nombre inférieur au quotient de différence et timelaps
+              On obtient un point maximum plus petit que le point réel puisqu'on ne va pas jusqu'au bout de difference/timelaps
+              mais cet ecart reste le même (inférieur à diff_lat/timelaps ou diff_lng/timelaps) puisqu'on repart de ce point ensuite pour calculer diff_lat et diff_lng*/
+              for(var index = 1; index < difference/timelaps; index ++){
                 team.position.push([last_lat_lng[0] + (diff_lat/(difference/timelaps)) * index, last_lat_lng[1] + (diff_lng/(difference/timelaps)) * index]);
               }
-            }
-            //teamTag = datas[0].properties.team.name;
-            //if(sendBroadcast("update-2",{team : teamTag, position : new_position, dev_id : device_id, time : time}) === true)
               res.sendStatus(200);
-            //else
-            //  res.status(500).send("Erreur : une erreur est survenue lors de l'envoi des données aux clients");
+            } else {
+              res.status(500).send("Erreur : No team found");
+            }
           }
+        }
         else
           res.status(500).send("Erreur : Une erreur s'est produite lors de la recherche en base de données");
       });
     }
   });
+
   app.delete("/api/delete-user",function(req,res){
     var message_update = "";
     var id = req.query.id;
@@ -137,7 +140,6 @@ module.exports = function (app) {
     else{
         //on ajoute l'utilisateur à la base
         data.removeManyData(databaseCollectionTrace, { "_id" : id }, function(error, datas){
-          console.log(error)
           if(error !== null){
             message_update = "Une erreur s'est produite, la suppression en base de données n'as pas abouti.";
           }else{
@@ -147,30 +149,45 @@ module.exports = function (app) {
         });
     }
   });
-  app.get("/api/start",function(req,res){
+
+  var start_ = app.get("/api/start",function(req,res){
+    startTime = Now();
+    //On initialise les premiers temps des équipes à maintenant
+    _.each(last_time_teams, function(team){
+      team.time = [Now()];
+    });
+    //On met en place un retard de valeur attenteDepart pour pouvoir utiliser l'interpolation
     setTimeout(function(){
+      while(!last_time_teams);
       for(var index = 0; index < last_time_teams.length; index ++){
-        startTeam(last_time_teams, index)
+        //On met en place le setInterval qui viendra ensuite alimenter l'utilisateur de la page
+        startTeam(last_time_teams, index);
       }
     },
     attenteDepart);
+    //On supprime l'API listener sur le start
+    start_.disable();
     res.sendStatus(200);
   });
+
   app.get("/api/get-all-user", function(req,res){
+    //Permet de récupérer toutes les objets de la colleciton trace dans la base
+    //TODO : A enlever avant l'évenement ?
     data.findWhere(databaseCollectionTrace,{}, function(error, datas){
       res.status(200).send(datas);
     })
   });
+
   app.get("/api/teams",function(req,res){
     data.findWhere(databaseCollectionTrace,{}, function(error, datas){
       res.status(200).send(_.map(datas,function(data){
         var distance = 0;
         for(var i = 1; i < data.geometry.coordinates.length; i++){
           distance += function_js.getDistanceLatLng(
-            function_js.TryParseInt(data.geometry.coordinates[i-1][0]),
-            function_js.TryParseInt(data.geometry.coordinates[i-1][1]),
-            function_js.TryParseInt(data.geometry.coordinates[i][0]),
-            function_js.TryParseInt(data.geometry.coordinates[i][1])
+            function_js.TryParseFloat(data.geometry.coordinates[i-1][0]),
+            function_js.TryParseFloat(data.geometry.coordinates[i-1][1]),
+            function_js.TryParseFloat(data.geometry.coordinates[i][0]),
+            function_js.TryParseFloat(data.geometry.coordinates[i][1])
           )
         }
         return {
@@ -181,6 +198,7 @@ module.exports = function (app) {
       }));
     });
   });
+
   app.get("/api/circuits/:confirme",function(req,res){
     if(req.params.confirme == "true"){
       data.findWhere(databaseCollectionCircuit,{"properties.type" : confirme}, function(error, datas){
@@ -193,6 +211,7 @@ module.exports = function (app) {
       });
     }
   });
+
   app.get("/api/circuit/kayak/:confirme",function(req,res){
     if(req.params.confirme == "true"){
       data.findWhere(databaseCollectionCircuit,{"properties.type" : (req.params.confirme ? confirme : debutant), "properties.part" : kayak}, function(error, datas){
@@ -205,6 +224,7 @@ module.exports = function (app) {
       });
     }
   });
+
   app.get("/api/circuit/velo/:confirme",function(req,res){
     if(req.params.confirme == "true"){
       data.findWhere(databaseCollectionCircuit,{"properties.type" : (req.params.confirme ? confirme : debutant), "properties.part" : velo}, function(error, datas){
@@ -217,9 +237,9 @@ module.exports = function (app) {
       });
     }
   });
+
   app.get("/api/circuit/running/:confirme",function(req,res){
     if(req.params.confirme == "true"){
-      console.log("ouaaaais");
       data.findWhere(databaseCollectionCircuit,{"properties.type" : (req.params.confirme ? confirme : debutant), "properties.part" : running}, function(error, datas){
         res.status(200).send(datas);
       });
@@ -230,6 +250,7 @@ module.exports = function (app) {
       });
     }
   });
+
   app.get("/first-coordinates",function(req,res){
     res.setHeader('Content-type','application/json');
     if(index_test > 0){
@@ -246,27 +267,12 @@ module.exports = function (app) {
     }
   });
 
-
-  /*function setUpdateEngine(last_time_teams, device_id, time){
-    var team = _.findWhere(last_time_teams, { device_id : device_id });
-    if(team != undefined)
-    {
-      team.time.push(Now());
-      if(team.timer.length != 0){
-
-      }else{
-        var difference = team.time[team.time.length-1] - team.time[team.time.length-2];
-        team.timer = [setInterval(function(){
-
-        }, timelaps)];
-
-      }
-    }
-  }*/
-
   function startTeam(last_time_teams_, index_){
+    //Initialisation du setInterval qui va venir chercher toutes les coordonnees en cache
     last_time_teams_[index_].interval = setInterval(function(){
+      //on regarde si pour l'équipe selectionné on a une position à prendre (en fonction de l'index actuel de l'équipe)
       if(last_time_teams_[index_].position[last_time_teams[index_].index]){
+        //On envoie à tous les postes connectés une mise à jour
         sendBroadcast("update",
         {
           team : last_time_teams_[index_].team,

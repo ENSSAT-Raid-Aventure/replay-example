@@ -2,7 +2,8 @@
 var http = require('http');
 var url = require('url');
 var querystring = require('querystring');
-data = require('./js/back-end/data')
+data = require('./js/back-end/data');
+d3 = require('d3');
 var app = require('express')();
 var bodyParser = require('body-parser')
 app.use(bodyParser.json() );       // to support JSON-encoded bodies
@@ -28,6 +29,46 @@ var tableau_data = [];
 
 var adresseIPAutoriséeAPI = "::1"
 
+    /*var circle_data = [
+      [20,25,20]
+    ];
+    var circle_data_2 = [
+      [20,25,10]
+    ]
+    var triangle_data = [
+      [
+        [0.25,29],
+        [39.75,29],
+        [20,25+60]
+      ]
+    ]
+    cloud1 = d3.select("#positionSVG");
+    var group = cloud1.append('g')
+    .style("opacity", 0.5)
+    .style("fill", "steelblue");
+    group.selectAll('circles')
+      .data(circle_data).enter()
+      .append("circle")
+      .attr("class","cloud1")
+      .attr("cx", function(d){return d[0]})
+      .attr("cy", function(d){return d[1]})
+      .attr("r", function(d){return d[2]})
+      //.style("fill", "steelblue");
+    group.selectAll("triangle")
+      .data(triangle_data).enter()
+      .append("polygon")
+      .attr("points", function(d){ return d[0][0] + "," + d[0][1] + " " + d[1][0] + "," + d[1][1] + " " + d[2][0] + "," + d[2][1]; })
+      //.style("fill", "steelblue")
+      //.style("fill-opacity", 0.5);
+    cloud1.selectAll('circles')
+      .data(circle_data_2).enter()
+      .append("circle")
+      .attr("class","cloud1")
+      .attr("cx", function(d){return d[0]})
+      .attr("cy", function(d){return d[1]})
+      .attr("r", function(d){return d[2]})
+      .style("fill", "white")
+      .style("fill-opacity", 1);*/
 fs.readFile(url,function(err,data){
   if(err) throw err;
   file = JSON.parse(data);
@@ -53,6 +94,18 @@ app.get("/js/script.js",function(req,res){
 app.get("/circuit.json",function(req,res){
   res.setHeader('Content-type','text/javascript');
   res.sendFile('./carte_eric/leguer.json', {root: __dirname });
+});
+app.get("/img/blue.svg",function(req,res){
+  res.setHeader('Content-type','image/svg+xml');
+  res.sendFile('./images/blue.svg', {root: __dirname });
+});
+app.get("/img/icon.svg/:color",function(req,res){
+  res.setHeader('Content-type','image/svg+xml');
+  //{{color}}
+  fs.readFile('./images/icon.svg',function(err,data){
+    if(!err) res.send(data.toString().replace("{{color}}", "#" + req.params.color));
+  });
+  //res.sendFile('./images/icon.svg', {root: __dirname });
 });
 
 

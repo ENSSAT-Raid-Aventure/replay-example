@@ -24,12 +24,12 @@ module.exports.isLocal = function (server, request) {
   return server.address() === cliAddress(request);
 }
 
-module.exports.TryParseInt = function (str) {
+module.exports.TryParseFloat = function (str) {
   var retValue = 0;
   if(str !== null) {
     if(str.length > 0) {
       if (!isNaN(str)) {
-        retValue = parseInt(str);
+        retValue = parseFloat(str);
       }
     }
   }
